@@ -95,7 +95,7 @@ gradientu (z odpowiednio małym α) zawsze zmierza do minimum globalnego, niezal
 
 1. **Dane liniowo separowalne** (w całości lub w jakimś kierunku): koszt można zmniejszać w nieskończoność, zwiększając ‖w‖ → minimum
    **nie jest osiągane dla skończonych wag** (infimum = 0 „w nieskończoności”). Koszt zbiega, wagi rosną bez końca.
-   W raporcie, sekcja 6.2: kolumna `thal_brak` z jedną jedynką → waga `thal_brak` rośnie (co do modułu) jak log(epoki).
+   (W naszym zbiorze po imputacji dominantą ten problem nie występuje – minimum jest skończone, L* = 0,287.)
    Lekarstwo: regularyzacja L2 (wtedy funkcja jest ściśle wypukła i minimum istnieje), lepszy preprocessing, early stopping.
 2. **Współliniowość cech** (np. one-hot bez pominięcia kategorii): hesjan jest osobliwy → minimum istnieje, ale **nie jest jednoznaczne**
    (cała prosta/płaszczyzna rozwiązań o tym samym koszcie).
@@ -108,10 +108,10 @@ Liczba kroków ~ **κ = λ_max / λ_min** (wskaźnik uwarunkowania).
 
 Policzone dla naszych danych (zbiór treningowy, standaryzowany):
 
-* w minimum: λ_max ≈ 0,195 → **2/λ_max ≈ 10,3**. Zgadza się z eksperymentem: α = 5 zbiega (14 epok), α = 20 oscyluje i nie zbiega.
-* w punkcie startowym w = 0: λ_max ≈ 0,89 → 2/λ_max ≈ 2,2. α = 5 jest „za duże” na starcie, ale BCE nie jest kwadratowa,
+* w minimum: λ_max ≈ 0,206 → **2/λ_max ≈ 9,7**. Zgadza się z eksperymentem: α = 5 zbiega (18 epok), α = 20 oscyluje i nie zbiega.
+* w punkcie startowym w = 0: λ_max ≈ 0,93 → 2/λ_max ≈ 2,2. α = 5 jest „za duże” na starcie, ale BCE nie jest kwadratowa,
   krzywizna maleje, gdy p oddala się od 0,5, więc mimo to się udaje.
-* dane **niestandaryzowane**: λ_max ≈ 26 700 → 2/λ_max ≈ **7,5·10⁻⁵**, a κ ≈ 2,8·10⁷.
+* dane **niestandaryzowane**: λ_max ≈ 26 900 → 2/λ_max ≈ **7,4·10⁻⁵**, a κ ≈ 3,1·10⁷.
   To tłumaczy wyniki: α = 10⁻³ i 10⁻² rozbiegają się/oscylują, α = 10⁻⁵ i 10⁻⁴ są stabilne, ale po 20 000 epokach koszt jest wciąż daleko od minimum.
 
 Podsumowanie: **za małe α** – powolna zbieżność (ale zbieżność); **dobre α** – szybko; **za duże α** – oscylacje / rozbieżność.
@@ -119,17 +119,17 @@ Podsumowanie: **za małe α** – powolna zbieżność (ale zbieżność); **dob
 ## 2.8 Standaryzacja a kształt funkcji kosztu
 
 Bez standaryzacji poziomice kosztu to bardzo wydłużone elipsy (wąska dolina). Gradient jest prostopadły do poziomic,
-więc wskazuje „w poprzek doliny”, a nie wzdłuż niej → zygzaki. Standaryzacja zbliża poziomice do okręgów (κ z ~5·10⁶ do ~38 dla XᵀX).
+więc wskazuje „w poprzek doliny”, a nie wzdłuż niej → zygzaki. Standaryzacja zbliża poziomice do okręgów (κ z ~5,5·10⁶ do ~46 dla XᵀX).
 Minimum jest to samo (standaryzacja to przekształcenie afiniczne; wagi się przeskalowują), zmienia się tylko łatwość jego znalezienia.
 
 ## 2.9 Inicjalizacja
 
 * **W regresji logistycznej zera są w porządku**: jeden neuron, nie ma problemu symetrii; startujemy z p = 0,5, L = ln 2.
 * **W sieciach wielowarstwowych (ćw. 3) zera są złe**: wszystkie neurony w warstwie dostają ten sam gradient i pozostają identyczne (problem symetrii). Dlatego tam losujemy (Xavier/Glorot, He).
-* **Duże wagi początkowe** (σ = 10, stała 5): duże |z| → sigmoida nasycona → p ≈ 0 lub 1, koszt startowy ogromny (do ~10).
+* **Duże wagi początkowe** (σ = 10, stała 5): duże |z| → sigmoida nasycona → p ≈ 0 lub 1, koszt startowy ogromny (do ~10,5).
   Dla błędnie sklasyfikowanych próbek gradient jest ograniczony (|p − y| ≤ 1), więc „wyjście” z takiego punktu trwa długo.
   Dzięki wypukłości wynik końcowy jest ten sam – to tylko **wydłuża** uczenie (N(0;10) nie zdążyło w 5000 epok w żadnym z 10 przebiegów).
-* Z małymi inicjalizacjami różnice w liczbie epok są niewielkie (890–985 epok).
+* Z małymi inicjalizacjami różnice w liczbie epok są niewielkie (ok. 990–1170 epok).
 
 ## 2.10 Warunki stopu i krzywa uczenia
 
@@ -140,7 +140,7 @@ Minimum jest to samo (standaryzacja to przekształcenie afiniczne; wagi się prz
 **Krzywa uczenia** = koszt/metryki w funkcji epoki dla train i walidacji. Jak czytać:
 
 * obie maleją → model się uczy,
-* train maleje, walidacja rośnie → **przeuczenie (overfitting)**; u nas koszt walidacyjny ma minimum ok. epoki 111 i potem rośnie (0,386 → 0,433),
+* train maleje, walidacja rośnie → **przeuczenie (overfitting)**; u nas koszt walidacyjny ma minimum ok. epoki 133 i potem rośnie (0,387 → 0,437),
   bo wagi rosną, a predykcje stają się „zbyt pewne”,
 * obie wysokie i płaskie → **niedouczenie** (model za prosty albo α za małe).
 
@@ -200,7 +200,6 @@ for ep in range(self.epochs):
 4. **Inicjalizacja**: 7 wariantów × 10 ziaren (dla losowych), średnia i zakres kosztu.
 5. **Warunki stopu**: 10/100/1000/20000 epok, tol 10⁻⁴ i 10⁻⁶, early stopping.
 6. **Brak standaryzacji** (`load_data(standardize=False)`).
-7. **Wskaźniki braków** (`load_data(clean=False)`) – śledzenie ‖w‖ i wag przez 200 000 epok.
 
 `data.py` – ten sam preprocessing co w ćw. 1 (patrz NAUKA_cw1): imputacja dominantą, one-hot, standaryzacja statystykami z treningu, podział 60/20/20.
 
@@ -209,14 +208,14 @@ for ep in range(self.epochs):
 | czynnik | co się dzieje | uniemożliwia czy wydłuża? |
 |---|---|---|
 | α za małe (≤ 0,01) | koszt monotonicznie, ale wolno spada | **wydłuża** |
-| α 0,1–5 | zbieżność do L\* w 922 → 14 epok | – |
-| α za duże (≥ 20 > 2/λ_max ≈ 10) | oscylacje, brak zbieżności | **uniemożliwia** (dla tego α) |
-| duża inicjalizacja | nasycenie sigmoidy, start z L ≈ 8–10, setki–tysiące epok więcej | **wydłuża** |
+| α 0,1–5 | zbieżność do L\* w 1067 → 18 epok | – |
+| α za duże (≥ 20 > 2/λ_max ≈ 9,7) | oscylacje, brak zbieżności | **uniemożliwia** (dla tego α) |
+| duża inicjalizacja | nasycenie sigmoidy, start z L ≈ 3–10,5, tysiące epok więcej | **wydłuża** |
 | brak standaryzacji | złe uwarunkowanie (κ ~ 10⁷): dla stabilnego α praktycznie stoi | w praktyce **uniemożliwia** (teoretycznie wydłuża) |
 | dane separowalne w jakimś kierunku | koszt zbiega, wagi → ∞ | minimum **nie istnieje** dla skończonych wag |
 | długi trening | koszt train → L\*, koszt val rośnie | przeuczenie, F1 bez zmian |
 
-Jakość: F1 = 0,80 na teście (P = 0,786, R = 0,815), identycznie jak sklearn → poprawna implementacja.
+Jakość: w minimum F1 = 0,772 na teście, identycznie jak sklearn uczony na tych samych 181 próbkach (wagi zgodne do 1,5·10⁻⁵) → poprawna implementacja. Model po 2000 epokach: F1 = 0,786.
 
 # 5. Pytania na wejściówkę (z odpowiedziami)
 
@@ -229,7 +228,7 @@ Jakość: F1 = 0,80 na teście (P = 0,786, R = 0,815), identycznie jak sklearn �
 7. **Dlaczego nie MSE?** Niewypukłe z sigmoidą; gradient zawiera σ', który znika przy nasyceniu.
 8. **Reguła aktualizacji wag?** wᵢ ← wᵢ − α ∂L/∂wᵢ.
 9. **Co to jest α i jak wpływa na uczenie?** Długość kroku; za małe – wolno, za duże – oscylacje/rozbieżność.
-10. **Jaki jest teoretyczny próg stabilności α?** α < 2/λ_max(H); u nas ≈ 10 w pobliżu minimum.
+10. **Jaki jest teoretyczny próg stabilności α?** α < 2/λ_max(H); u nas ≈ 9,7 w pobliżu minimum.
 11. **Co to znaczy, że funkcja jest wypukła i co z tego wynika?** Odcinek nad wykresem / hesjan ≥ 0; każde minimum lokalne jest globalne.
 12. **Udowodnij wypukłość BCE dla regresji logistycznej.** H = (1/N)XᵀSX, S = diag(p(1−p)) ≥ 0 → vᵀHv ≥ 0.
 13. **Czy regresja logistyczna zawsze osiąga minimum globalne?** Przy rozsądnym α tak, jeśli minimum istnieje. Nie istnieje (dla skończonych wag), gdy dane są liniowo separowalne; nie jest jednoznaczne przy współliniowości.
@@ -241,7 +240,7 @@ Jakość: F1 = 0,80 na teście (P = 0,786, R = 0,815), identycznie jak sklearn �
 19. **Co to jest krzywa uczenia i co z niej odczytasz?** Koszt/metryki vs epoka; zbieżność, przeuczenie (val rośnie), niedouczenie.
 20. **Jakie warunki stopu znasz?** Stała liczba epok, |ΔL| < tol, ‖∇L‖ < tol, early stopping na walidacji.
 21. **Na czym polega early stopping?** Zatrzymanie, gdy koszt walidacyjny nie poprawia się przez `patience` epok, i przywrócenie najlepszych wag.
-22. **Czy model liniowy może się przeuczyć?** Tak – u nas koszt walidacyjny rośnie po ~110 epokach, bo wagi rosną i predykcje są zbyt pewne.
+22. **Czy model liniowy może się przeuczyć?** Tak – u nas koszt walidacyjny rośnie po ~130 epokach, bo wagi rosną i predykcje są zbyt pewne.
 23. **Dlaczego F1 może się nie zmieniać, gdy koszt spada?** F1 zależy tylko od progu 0,5; koszt także od pewności predykcji.
 24. **Dlaczego standaryzacja przyspiesza uczenie?** Poprawia uwarunkowanie (κ), pozwala na większe α wspólne dla wszystkich kierunków.
 25. **Ile wynosi koszt dla wag zerowych?** ln 2 ≈ 0,693 (bo p = 0,5 dla każdej próbki).

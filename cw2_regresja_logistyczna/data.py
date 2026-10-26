@@ -4,10 +4,8 @@ Wczytanie i przygotowanie zbioru Heart Disease (Cleveland, UCI) - wspólne dla �
 
 [KOD WYGENEROWANY Z POMOCĄ AI (Claude) - zgodnie z pkt 11 regulaminu.]
 
-Źródło: UCI Heart Disease, plik Cleveland (303 próbki, 14 atrybutów).
-Strona UCI (archive.ics.uci.edu) nie była osiągalna ze środowiska, w którym przygotowano
-kod, więc użyto kopii ARFF tego samego zbioru (heart-c.arff); konwersja do kodów
-liczbowych UCI jest w heart_cleveland.csv (puste pola = braki, w oryginale '?').
+Źródło: UCI Heart Disease (https://archive.ics.uci.edu/dataset/45/heart+disease),
+plik dane/processed.cleveland.data (303 próbki, 14 atrybutów, braki oznaczone '?').
 target = 0 brak choroby (num == 0), 1 choroba (num in 1..4).
 
 Opis kodów (zgodny z dokumentacją UCI):
@@ -26,7 +24,9 @@ import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV = os.path.join(HERE, "dane", "heart_cleveland.csv")
+CSV = os.path.join(HERE, "dane", "processed.cleveland.data")
+COLUMNS = ["age", "sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach",
+           "exang", "oldpeak", "slope", "ca", "thal", "num"]
 
 NUMERIC = ["age", "trestbps", "chol", "thalach", "oldpeak", "ca"]   # ca: porządkowa 0-3 -> traktujemy liczbowo
 BINARY = ["sex", "fbs", "exang"]
@@ -35,7 +35,8 @@ TARGET = "target"
 
 
 def load_raw(drop_duplicates=True):
-    df = pd.read_csv(CSV)
+    df = pd.read_csv(CSV, header=None, names=COLUMNS, na_values="?")
+    df[TARGET] = (df.pop("num") > 0).astype(int)     # 0 = zdrowy, 1-4 = chory
     if drop_duplicates:
         df = df.drop_duplicates().reset_index(drop=True)
     return df

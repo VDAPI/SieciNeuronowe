@@ -33,15 +33,11 @@ RESULTS = {}
 # ----------------------------------------------------------------------------
 import sys
 sys.path.insert(0, HERE)
-if hasattr(sys.stdout, "reconfigure"):  # Windows: avoid UnicodeEncodeError (cp1250) when output is redirected
-    sys.stdout.reconfigure(encoding="utf-8")
 from data import load_splits  # noqa: E402  (preprocessing taki sam jak w ćwiczeniu 1)
 
 
-def load_data(standardize=True, clean=True, seed=SEED):
-    """clean=False -> braki kodowane dodatkowymi kolumnami-wskaźnikami (ca_brak, thal_brak) i bez łączenia
-    rzadkiej kategorii restecg=1. Kolumna thal_brak ma w zbiorze treningowym jedną jedynkę -> patrz eksperyment 3.7."""
-    return load_splits(seed=seed, standardize=standardize, merge_rare_restecg=clean, missing_indicators=not clean)
+def load_data(standardize=True, seed=SEED):
+    return load_splits(seed=seed, standardize=standardize)
 
 
 # ----------------------------------------------------------------------------
@@ -323,48 +319,6 @@ def main():
         print("[sklearn]", RESULTS["sklearn_check"])
     except ImportError:
         pass
-
-    # ------------------------------------------------------------------ 3.7 Kolumny-wskaźniki braków: minimum "w nieskończoności"
-    (Xtr_u, ytr_u), _, (Xte_u, yte_u), names_u = load_data(clean=False)
-    mu_ = LogisticRegressionGD(lr=0.5, epochs=200_000, stop="tol", tol=1e-14)
-    # śledzimy normę wag i kilka wag "rzadkich" kategorii w trakcie uczenia
-    ckpts = np.unique(np.logspace(0, np.log10(200_000), 60).astype(int))
-    mu_.w, mu_.b = init_params(Xtr_u.shape[1]); traj, lossu = [], []
-    for ep in range(1, 200_001):
-        p = mu_.predict_proba(Xtr_u); err = ytr_u - p
-        mu_.w += 0.5 * (Xtr_u.T @ err) / len(ytr_u); mu_.b += 0.5 * np.mean(err)
-        if ep in ckpts:
-            traj.append(mu_.w.copy()); lossu.append(bce(ytr_u, mu_.predict_proba(Xtr_u)))
-    traj = np.array(traj)
-    # to samo dla imputacji dominantą (bez wskaźników)
-    mc = LogisticRegressionGD(lr=0.5, epochs=1).fit(Xtr, ytr)
-    mc.w, mc.b = init_params(Xtr.shape[1]); trajc, lossc = [], []
-    for ep in range(1, 200_001):
-        p = mc.predict_proba(Xtr); err = ytr - p
-        mc.w += 0.5 * (Xtr.T @ err) / len(ytr); mc.b += 0.5 * np.mean(err)
-        if ep in ckpts:
-            trajc.append(mc.w.copy()); lossc.append(bce(ytr, mc.predict_proba(Xtr)))
-    trajc = np.array(trajc)
-    fig, ax = plt.subplots(1, 3, figsize=(16, 4.2))
-    ax[0].plot(ckpts, lossu, label="ze wskaźnikami braków"); ax[0].plot(ckpts, lossc, label="imputacja dominantą")
-    ax[0].set_xscale("log"); ax[0].set_xlabel("epoka"); ax[0].set_ylabel("koszt (train)"); ax[0].legend()
-    ax[0].set_title("Koszt (α=0.5)"); ax[0].set_ylim(0.2, 0.7)
-    ax[1].plot(ckpts, np.linalg.norm(traj, axis=1), label="ze wskaźnikami braków")
-    ax[1].plot(ckpts, np.linalg.norm(trajc, axis=1), label="imputacja dominantą")
-    ax[1].set_xscale("log"); ax[1].set_xlabel("epoka"); ax[1].set_ylabel("||w||"); ax[1].legend()
-    ax[1].set_title("Norma wektora wag")
-    for nm in ["thal_brak", "ca_brak", "restecg_1", "thal_7", "cp_4"]:
-        if nm in names_u:
-            ax[2].plot(ckpts, traj[:, names_u.index(nm)], label=nm)
-    ax[2].set_xscale("log"); ax[2].set_xlabel("epoka"); ax[2].set_ylabel("waga"); ax[2].legend(fontsize=8)
-    ax[2].set_title("Wagi wybranych cech (ze wskaźnikami braków)")
-    plt.tight_layout(); plt.savefig(os.path.join(FIG, "8_rare_categories_divergence.png"), dpi=130); plt.close()
-    RESULTS["unclean_data"] = dict(
-        loss_at=dict(zip(["1e3", "1e4", "1e5", "2e5"], [float(np.interp(e, ckpts, lossu)) for e in (1e3, 1e4, 1e5, 2e5)])),
-        wnorm_at=dict(zip(["1e3", "1e4", "1e5", "2e5"], [float(np.interp(e, ckpts, np.linalg.norm(traj, axis=1))) for e in (1e3, 1e4, 1e5, 2e5)])),
-        clean_wnorm_at=dict(zip(["1e3", "1e4", "1e5", "2e5"], [float(np.interp(e, ckpts, np.linalg.norm(trajc, axis=1))) for e in (1e3, 1e4, 1e5, 2e5)])),
-        test_f1=metrics(yte_u, mu_.predict_proba(Xte_u))["f1"])
-    print("[unclean]", RESULTS["unclean_data"])
 
     with open(os.path.join(HERE, "results.json"), "w", encoding="utf-8") as f:
         json.dump(RESULTS, f, indent=2, ensure_ascii=False)
