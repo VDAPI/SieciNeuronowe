@@ -15,6 +15,8 @@ wyniki liczbowe (`results.json`), raport (`raport_cwX.md/.docx`) oraz materiał 
 |----|-------|--------|
 | 1 | Analiza eksploracyjna zbioru i baseline (sklearn) | [`cw1_analiza_eksploracyjna/`](cw1_analiza_eksploracyjna/) |
 | 2 | Regresja logistyczna – własna implementacja w NumPy | [`cw2_regresja_logistyczna/`](cw2_regresja_logistyczna/) |
+| 3 | Sieć wielowarstwowa (MLP) uczona propagacją wsteczną | [`cw3_mlp_backprop/`](cw3_mlp_backprop/) |
+| 3, cz. 2 | Optymalizacja: tryby uczenia, inicjalizacja He, ADAM | [`cw3_cz2_optymalizacja/`](cw3_cz2_optymalizacja/) |
 
 ## Uruchomienie
 
@@ -30,6 +32,12 @@ python eda.py          # wykresy -> figures/, liczby -> results.json
 
 cd ../cw2_regresja_logistyczna
 python logreg.py       # ok. 2,5 minuty; wykresy -> figures/, liczby -> results.json
+
+cd ../cw3_mlp_backprop
+python mlp.py          # ok. 6 minut
+
+cd ../cw3_cz2_optymalizacja
+python optim.py        # ok. 1,5 minuty
 ```
 
 Skrypty uruchamia się z folderu danego ćwiczenia; nadpisują one zawartość `figures/`
