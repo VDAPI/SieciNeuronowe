@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>NAUKA – ćwiczenie 4</title>
+<link rel="stylesheet" href="styl.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});"></script>
+<style>
+  .katex { font-size: 1.05em; }
+  .katex-display { margin: 4pt 0 6pt 0; }
+</style>
+</head>
+<body>
+
+<h1>Sieci neuronowe – ćwiczenie 4: nauka</h1>
+<p class="meta">PyTorch od podstaw: liczby w komputerze, graf obliczeniowy, autograd, koszt, optymalizator, CIFAR10. Przy każdym temacie: wzór, intuicja, przykład na liczbach.</p>
+
+<section>
+<h2>0. O co chodzi w ćwiczeniu</h2>
+<ul>
+<li>W ćw. 3 sieć była napisana ręcznie: każdy moduł miał forward i backward.</li>
+<li>W ćw. 4 tę samą sieć buduję w PyTorch. Backward liczy się sam (autograd).</li>
+<li>Zadanie: uzyskać <b>te same liczby</b> co w ćw. 3 i opisać, co trzeba było wyrównać.</li>
+<li>Potem większa sieć na CIFAR10: wynik to punkt odniesienia (baseline) dla ćw. 5.</li>
+</ul>
+</section>
+
+<section>
+<h2>1. Liczby w komputerze: float32 i float64</h2>
+<p><b>Wzór.</b> Liczba zmiennoprzecinkowa to $\pm m \cdot 2^{e}$, gdzie $m$ ma stałą liczbę cyfr. Najmniejszy krok między liczbami blisko 1 to <b>ULP</b>:</p>
+$$\text{float64: } 2^{-52} \approx 2{,}2\cdot 10^{-16} \qquad \text{float32: } 2^{-23} \approx 1{,}2\cdot 10^{-7}$$
+<p><b>Intuicja.</b> float64 pamięta ok. 16 cyfr znaczących, float32 ok. 7. Wszystko, co dalej, jest zaokrąglane. PyTorch domyślnie używa float32, NumPy float64.</p>
+<p><b>Przykład.</b></p>
+<ul>
+<li>$0{,}1 + 0{,}2 = 0{,}30000000000000004$ w float64, bo ani 0,1, ani 0,2 nie da się zapisać dokładnie.</li>
+<li>Waga $0{,}01$ zapisana w float32 to $0{,}0099999998$, różnica $2\cdot10^{-10}$. Stąd różnica wag ok. $10^{-9}$ w kroku K2.</li>
+<li>Kolejność dodawania ma znaczenie: $(10^{16} + 1) - 10^{16} = 0$, a $(10^{16} - 10^{16}) + 1 = 1$. Biblioteki mnożą macierze w różnej kolejności, dlatego NumPy i PyTorch różnią się o ok. 1 ULP.</li>
+</ul>
+</section>
+
+<section>
+<h2>2. Graf obliczeniowy i autograd</h2>
+<p><b>Wzór.</b> Reguła łańcuchowa: jeśli $L$ zależy od $w$ przez $z$, to</p>
+$$\frac{\partial L}{\partial w} = \frac{\partial L}{\partial z}\cdot\frac{\partial z}{\partial w}$$
+<p><b>Intuicja.</b> Każda operacja w PyTorch zapisuje w wyniku, z czego powstał (atrybut grad_fn). Powstaje graf: od kosztu do wag. Wywołanie backward() idzie po tym grafie od końca i mnoży pochodne, dokładnie jak ręczny backward z ćw. 3.</p>
+<p><b>Przykład.</b> $x = 3$, $w = 2$, $b = 1$, $y = 5$.</p>
+<table>
+<tr><th>w przód</th><th>wartość</th><th>wstecz</th><th>wartość</th></tr>
+<tr><td>$z = wx + b$</td><td class="n">7</td><td>$\partial L/\partial e = 2e$</td><td class="n">4</td></tr>
+<tr><td>$e = z - y$</td><td class="n">2</td><td>$\partial L/\partial z = 4 \cdot 1$</td><td class="n">4</td></tr>
+<tr><td>$L = e^2$</td><td class="n">4</td><td>$\partial L/\partial w = 4 \cdot x$</td><td class="n">12</td></tr>
+<tr><td></td><td></td><td>$\partial L/\partial b = 4 \cdot 1$</td><td class="n">4</td></tr>
+</table>
+<p>Sprawdzenie: $w = 2{,}001$ daje $L = 4{,}012$, czyli $\Delta L/\Delta w \approx 12$. Po backward() wynik 12 leży w w.grad.</p>
+</section>
+
+<section>
+<h2>3. Gradient się sumuje: zero_grad()</h2>
+<p><b>Wzór.</b> Jeśli $w$ wpływa na $L$ kilkoma drogami, gradienty z dróg się dodają:</p>
+$$\frac{\partial L}{\partial w} = \sum_{\text{drogi}} \frac{\partial L}{\partial w}\Big|_{\text{droga}}$$
+<p><b>Intuicja.</b> Dlatego backward() robi w.grad += ..., a nie w.grad = .... Skutek uboczny: gradient z poprzedniej paczki zostaje, więc przed każdym krokiem trzeba go wyzerować.</p>
+<p><b>Przykład.</b> $L = wx + w^2$, $w = 2$, $x = 3$. Droga przez $wx$ daje 3, droga przez $w^2$ daje $2w = 4$, razem 7. Bez zero_grad() drugi backward() z przykładu z punktu 2 dałby w.grad = 12 + 12 = 24.</p>
+</section>
+
+<section>
+<h2>4. Warstwa liniowa i wagi startowe</h2>
+<p><b>Wzór.</b> $y = xW^{T} + b$, $W$ ma kształt (wyjścia, wejścia), tak samo jak w ćw. 3. Domyślnie PyTorch losuje</p>
+$$W_{ij} \sim U\!\left(-\tfrac{1}{\sqrt{n_{in}}},\ \tfrac{1}{\sqrt{n_{in}}}\right), \qquad \text{std} = \frac{1}{\sqrt{3\,n_{in}}}$$
+<p><b>Intuicja.</b> Przy małych wagach wyjście sieci jest bliskie 0, więc $p = \sigma(0) = 0{,}5$ i koszt $= \ln 2 = 0{,}693$ (plateau z ćw. 3). Gradient każdej warstwy zawiera wagi innych warstw, więc przy małych wagach jest mały i uczenie długo stoi.</p>
+<p><b>Przykład.</b> $n_{in} = 17$: granica $1/\sqrt{17} = 0{,}243$, std $= 0{,}140$ (zmierzone 0,143), czyli 14 razy więcej niż 0,01 z ćw. 3. Jeden neuron, $x = 1$, $y = 1$, $w_1 = w_2 = 0{,}01$:</p>
+$$h = 0{,}01,\quad z = 0{,}0001,\quad p - y = -0{,}5,\quad \frac{\partial L}{\partial w_1} = (p-y)\,w_2\,x = -0{,}005$$
+<p>Krok $\alpha \cdot 0{,}005 = 0{,}00005$ zmienia wagę o 0,5% na epokę. Dlatego naiwny port (K0) rusza po 40–290 epokach, a ćw. 3 po ok. 750.</p>
+</section>
+
+<section>
+<h2>5. Sigmoida i entropia krzyżowa razem</h2>
+<p><b>Wzór.</b> $p = \sigma(z) = \frac{1}{1+e^{-z}}$, $L = -[\,y\ln p + (1-y)\ln(1-p)\,]$. Pochodna po $z$:</p>
+$$\frac{\partial L}{\partial p}\cdot\frac{\partial p}{\partial z} = \left(-\frac{y}{p} + \frac{1-y}{1-p}\right)\cdot p(1-p) = p - y$$
+<p><b>Intuicja.</b> Razem wzór jest prosty i stabilny. Osobno trzeba dzielić przez $p(1-p)$, które przy pewnej, ale złej odpowiedzi jest prawie zerem. BCEWithLogitsLoss liczy oba kroki razem (jak SigmoidBCE z ćw. 3), a sigmoid + BCELoss osobno.</p>
+<p><b>Przykład.</b> $y = 1$, $z = -50$ (sieć jest pewna, że to 0):</p>
+<ul>
+<li>$p = \sigma(-50) = 1{,}9\cdot10^{-22}$, koszt $= \ln(1+e^{50}) = 50$. W ćw. 3 $p$ obcinam do $10^{-12}$, więc koszt $= -\ln 10^{-12} = 27{,}6$.</li>
+<li>Razem: $\partial L/\partial z = p - y = -1$. Pełny sygnał, żeby poprawić błąd.</li>
+<li>Osobno: BCELoss dzieli przez $\max(p(1-p),\ 10^{-12}) = 10^{-12}$, czyli $\partial L/\partial p = -10^{12}$. Potem razy $\partial p/\partial z = 1{,}9\cdot10^{-22}$ daje $-1{,}9\cdot10^{-10}$. Gradient prawie znika.</li>
+</ul>
+</section>
+
+<section>
+<h2>6. Optymalizator: SGD i ADAM</h2>
+<p><b>Wzór.</b> SGD: $w \leftarrow w - \alpha g$. ADAM (krok $t$):</p>
+$$m = \beta_1 m + (1-\beta_1)g,\quad v = \beta_2 v + (1-\beta_2)g^2,\quad \hat m = \frac{m}{1-\beta_1^{t}},\quad \hat v = \frac{v}{1-\beta_2^{t}},\quad w \leftarrow w - \alpha\frac{\hat m}{\sqrt{\hat v}+\varepsilon}$$
+<p><b>Intuicja.</b> ADAM dzieli gradient przez jego typową wielkość, więc krok ma ok. $\alpha$ niezależnie od tego, czy gradient jest duży, czy mały. Na płaskich odcinkach to przyspiesza uczenie, ale też wzmacnia drobne różnice (punkt 9).</p>
+<p><b>Przykład.</b> $\alpha = 0{,}001$, $\beta_1 = 0{,}9$, $\beta_2 = 0{,}999$, pierwszy krok, $g = 0{,}5$:</p>
+$$m = 0{,}05,\quad v = 0{,}00025,\quad \hat m = 0{,}5,\quad \hat v = 0{,}25,\quad \text{krok} = 0{,}001\cdot\frac{0{,}5}{0{,}5} = 0{,}001$$
+<p>Dla $g = 0{,}0005$ krok też wynosi ok. 0,001. SGD z $\alpha = 0{,}01$ dałby kroki 0,005 i 0,000005.</p>
+</section>
+
+<section>
+<h2>7. Paczki i kolejność przykładów</h2>
+<p><b>Wzór.</b> Gradient paczki to średnia gradientów jej przykładów: $g_B = \frac{1}{|B|}\sum_{i\in B} g_i(w)$.</p>
+<p><b>Intuicja.</b> W każdej epoce przykłady są mieszane. Inny generator losowy daje inne paczki, więc inne gradienty i inne wagi. Dlatego DataLoader z mieszaniem PyTorch nie odtworzy ćw. 3. Trzeba podać mu kolejność wylosowaną przez NumPy.</p>
+<p><b>Przykład.</b> 4 przykłady z gradientami 1, 3, 5, 7, paczki po 2:</p>
+<table>
+<tr><th>kolejność</th><th>paczki</th><th class="n">gradienty paczek</th></tr>
+<tr><td>0, 1, 2, 3</td><td>{0, 1}, {2, 3}</td><td class="n">2, potem 6</td></tr>
+<tr><td>0, 2, 1, 3</td><td>{0, 2}, {1, 3}</td><td class="n">3, potem 5</td></tr>
+</table>
+<p>W sieci gradient zależy od aktualnych wag, więc po różnych pierwszych krokach dalsze kroki też są różne. W K8 wagi różniły się o 0,05 po 300 epokach.</p>
+</section>
+
+<section>
+<h2>8. Kolejność operacji w pętli</h2>
+<p><b>Intuicja.</b> W ćw. 3 w każdej epoce: koszt i gradient dla obecnych wag, koszt walidacyjny dla tych samych wag, zapis najlepszych wag, dopiero potem krok. W pętli z tutoriala krok jest przed pomiarem walidacyjnym.</p>
+<p><b>Przykład.</b> Najlepszy koszt walidacyjny w ćw. 3 jest w epoce 1783. Gdyby mierzyć po kroku, te same wagi zostałyby zapisane jako epoka 1782, a wynik raportu byłby przesunięty o 1.</p>
+</section>
+
+<section>
+<h2>9. Jak rośnie mała różnica</h2>
+<p><b>Wzór.</b> Jeśli różnica w każdej epoce mnoży się przez $k$, to po $n$ epokach $e_n = e_0\,k^n$.</p>
+<p><b>Intuicja.</b> W stabilnym uczeniu $k \le 1$ i różnica zostaje na poziomie zaokrągleń. W przebiegu, który skacze (za duże $\alpha$, dane bez skalowania), $k &gt; 1$ i różnica rośnie wykładniczo: to chaos. Wtedy nawet ten sam kod NumPy po zmianie wagi o 1 ULP daje inny wynik.</p>
+<p><b>Przykład.</b> $e_0 = 10^{-16}$, $k = 1{,}1$. Różnica $10^{-6}$ pojawia się po $n = \ln(10^{10})/\ln 1{,}1 \approx 242$ epokach. Dla $k = 1$ nie pojawia się nigdy. W raporcie: dane surowe, rozjazd w epoce 57 (NumPy +1 ULP) i 329 (PyTorch).</p>
+</section>
+
+<section>
+<h2>10. Nieskończoność razy zero</h2>
+<p><b>Wzór.</b> Według standardu IEEE 754: $(-\infty)\cdot 0 = \text{NaN}$, a $\max(0, -\infty) = 0$. NaN plus cokolwiek daje NaN.</p>
+<p><b>Intuicja.</b> ReLU z ćw. 3 liczy $x \cdot [x &gt; 0]$, nn.ReLU liczy $\max(0, x)$. Matematycznie to to samo, ale nie dla $-\infty$. Przy wagach N(0; 10) wagi rosną do $10^{95}$ i aktywacje przekraczają zakres float64 (ok. $1{,}8\cdot10^{308}$).</p>
+<p><b>Przykład.</b> $x = [\,2,\ -3,\ -\infty\,]$:</p>
+$$x\cdot[x&gt;0] = [\,2,\ 0,\ \text{NaN}\,] \qquad \max(0, x) = [\,2,\ 0,\ 0\,]$$
+<p>Jeden NaN w następnej warstwie trafia do każdego neuronu, więc cała sieć daje NaN. Z $\max$ neuron jest po prostu martwy.</p>
+</section>
+
+<section>
+<h2>11. Poziomy porównania (kroki K0–K9)</h2>
+<table>
+<tr><th>poziom</th><th>pytanie</th><th>co trzeba było wyrównać</th></tr>
+<tr><td>zachowanie</td><td>czy jest plateau, przeuczenie?</td><td>rozkład wag startowych (K0)</td></tr>
+<tr><td>metryki</td><td>te same epoki, F1?</td><td>te same wagi, nie tylko rozkład (K1, K2)</td></tr>
+<tr><td>wyjście, koszt</td><td>te same liczby?</td><td>float64 (K3), koszt przy skrajnych z (K5)</td></tr>
+<tr><td>gradienty</td><td>autograd = ręczny backward?</td><td>nic, zgadza się do $10^{-16}$ (K4)</td></tr>
+<tr><td>jeden krok</td><td>te same wagi po kroku?</td><td>nic, te same wzory SGD i ADAM (K6)</td></tr>
+<tr><td>całe uczenie</td><td>czy różnica rośnie?</td><td>kolejność paczek (K8) i operacji w pętli (K9)</td></tr>
+</table>
+<p>Zasada: zaczynam od najniższego poziomu. Jeśli wagi i gradienty się zgadzają, a wynik nie, szukam w pętli uczenia.</p>
+</section>
+
+<section>
+<h2>12. CIFAR10: softmax i entropia krzyżowa</h2>
+<p><b>Wzór.</b> Dla 10 klas sieć daje 10 liczb $z_k$:</p>
+$$p_k = \frac{e^{z_k}}{\sum_j e^{z_j}}, \qquad L = -\ln p_{\text{prawdziwa}}, \qquad \frac{\partial L}{\partial z_k} = p_k - [k = \text{prawdziwa}]$$
+<p><b>Intuicja.</b> To uogólnienie sigmoidy i BCE na wiele klas. Gradient ma tę samą postać „przewidziane minus prawdziwe”.</p>
+<p><b>Przykład.</b> $z = [\,2,\ 1,\ 0\,]$, prawdziwa klasa 0:</p>
+$$p = [\,0{,}665;\ 0{,}245;\ 0{,}090\,], \quad L = -\ln 0{,}665 = 0{,}408, \quad \frac{\partial L}{\partial z} = [\,-0{,}335;\ 0{,}245;\ 0{,}090\,]$$
+</section>
+
+<section>
+<h2>13. CIFAR10: liczba wag, standaryzacja, dropout</h2>
+<p><b>Liczba wag.</b> Warstwa $n_{in} \to n_{out}$ ma $n_{in}\cdot n_{out} + n_{out}$ parametrów.</p>
+<table>
+<tr><th>warstwa</th><th class="n">parametry</th></tr>
+<tr><td>3072 → 1024</td><td class="n">3 146 752</td></tr>
+<tr><td>1024 → 512</td><td class="n">524 800</td></tr>
+<tr><td>512 → 256</td><td class="n">131 328</td></tr>
+<tr><td>256 → 10</td><td class="n">2 570</td></tr>
+<tr><td><b>razem</b></td><td class="n"><b>3 805 450</b></td></tr>
+</table>
+<p><b>Standaryzacja per kanał.</b> $x' = (x - \mu_c)/\sigma_c$, $\mu$ i $\sigma$ liczone tylko na zbiorze treningowym. Przykład: piksel czerwony 200/255 = 0,784, $\mu_R = 0{,}492$, $\sigma_R = 0{,}247$, więc $x' = 1{,}18$.</p>
+<p><b>Dropout.</b> Przy uczeniu każdy neuron jest wyłączany z prawdopodobieństwem $q = 0{,}3$, a pozostałe mnożone przez $1/(1-q)$, żeby średnia się nie zmieniła. Przy teście dropout jest wyłączony.</p>
+$$h = [\,1,\ 2,\ 3,\ 4\,],\ \text{maska } [\,1,\ 0,\ 1,\ 1\,] \ \Rightarrow\ [\,1{,}43;\ 0;\ 4{,}29;\ 5{,}71\,]$$
+<p><b>Intuicja.</b> Sieć nie może polegać na jednym neuronie, więc trudniej jej zapamiętać zbiór treningowy. Bez dropoutu: 93% na treningu i 53% na walidacji. Z dropoutem: 68% i 54%, a na teście 54,6%.</p>
+<p><b>Dlaczego tylko ok. 55%.</b> MLP widzi obrazek jako 3072 osobne liczby. Przesunięcie kota o 1 piksel zmienia prawie wszystkie wejścia, więc sieć musi uczyć się każdego położenia osobno. Konwolucje (ćw. 5) używają tych samych wag w każdym miejscu obrazka.</p>
+</section>
+
+<section>
+<h2>14. Pytania sprawdzające</h2>
+<table>
+<tr><th>pytanie</th><th>odpowiedź</th></tr>
+<tr><td>Po co zero_grad()?</td><td>backward() dodaje gradient do .grad, bez zerowania sumowałyby się gradienty z kolejnych paczek.</td></tr>
+<tr><td>Co to jest grad_fn?</td><td>Zapis operacji, z której powstał tensor. Z tych zapisów składa się graf obliczeniowy.</td></tr>
+<tr><td>Czemu naiwny port nie ma plateau?</td><td>Domyślne wagi mają std 0,14 zamiast 0,01, więc gradienty od początku są duże.</td></tr>
+<tr><td>Czemu przy tych samych ziarnach wagi są inne?</td><td>PyTorch i NumPy mają różne generatory losowe. Wagi trzeba skopiować.</td></tr>
+<tr><td>Czemu float32 nie daje tych samych wag?</td><td>Zaokrągla do ok. 7 cyfr. Różnica rośnie do $10^{-4}$, ale decyzje i metryki są te same.</td></tr>
+<tr><td>Dlaczego BCEWithLogitsLoss?</td><td>Daje gradient $p - y$ jak w ćw. 3. Sigmoida i BCELoss osobno tracą gradient przy pewnej złej odpowiedzi.</td></tr>
+<tr><td>Skąd NaN w ćw. 3, a nie w PyTorch?</td><td>ReLU jako mnożenie przez maskę: $-\infty \cdot 0 = \text{NaN}$. nn.ReLU to $\max(0, x)$.</td></tr>
+<tr><td>Czemu wyniku na danych surowych nie da się odtworzyć?</td><td>Przebieg jest chaotyczny: nawet NumPy sam ze sobą rozjeżdża się po zmianie wagi o 1 ULP.</td></tr>
+<tr><td>Ile wag ma warstwa 3072 → 1024?</td><td>$3072\cdot1024 + 1024 = 3\,146\,752$.</td></tr>
+<tr><td>Co daje dropout?</td><td>Mniejsze przeuczenie: koszt walidacyjny nie rośnie, dokładność testowa +1 pkt proc.</td></tr>
+</table>
+</section>
+
+</body>
+</html>

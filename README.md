@@ -17,6 +17,7 @@ wyniki liczbowe (`results.json`), raport (`raport_cwX.md/.docx`) oraz materiał 
 | 2 | Regresja logistyczna – własna implementacja w NumPy | [`cw2_regresja_logistyczna/`](cw2_regresja_logistyczna/) |
 | 3 | Sieć wielowarstwowa (MLP) uczona propagacją wsteczną | [`cw3_mlp_backprop/`](cw3_mlp_backprop/) |
 | 3, cz. 2 | Optymalizacja: tryby uczenia, inicjalizacja He, ADAM | [`cw3_cz2_optymalizacja/`](cw3_cz2_optymalizacja/) |
+| 4 | Sieć z ćw. 3 w PyTorch (testy zgodności) + baseline MLP na CIFAR10 | [`cw4_pytorch/`](cw4_pytorch/) |
 
 ## Uruchomienie
 
@@ -38,6 +39,9 @@ python mlp.py          # ok. 6 minut
 
 cd ../cw3_cz2_optymalizacja
 python optim.py        # ok. 1,5 minuty
+
+cd ../cw4_pytorch
+python equivalence.py  # ok. 4 min; potem replicate.py, diagnose.py, compare.py, cifar10.py (patrz README)
 ```
 
 Skrypty uruchamia się z folderu danego ćwiczenia; nadpisują one zawartość `figures/`

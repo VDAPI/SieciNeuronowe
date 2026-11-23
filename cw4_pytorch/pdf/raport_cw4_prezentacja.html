@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Sieci neuronowe – ćwiczenie 4</title>
+<link rel="stylesheet" href="styl.css">
+</head>
+<body>
+
+<h1>Sieci neuronowe – ćwiczenie 4</h1>
+<p class="meta">Dawid Pilarski, nr albumu 280468 · PyTorch · zbiory Heart Disease (Cleveland) i CIFAR10 · kod przygotowany z pomocą AI (Claude)</p>
+
+<section>
+<h2>Część 1. Sieć z ćw. 3 w PyTorch</h2>
+<p>Ta sama sieć co w ćw. 3: 17 wejść, warstwy liniowe z ReLU, na wyjściu sigmoida i entropia krzyżowa. Cel: te same eksperymenty i jak najbardziej podobne wyniki. Różnice usuwam po jednej (kroki K0–K9) i sprawdzam na kolejnych poziomach: zachowanie, metryki, wagi, gradienty.</p>
+
+<h3>1.1. Co zastępuje co</h3>
+<table>
+<tr><th>ćw. 3 (NumPy, własny kod)</th><th>PyTorch</th></tr>
+<tr><td>warstwa liniowa z ręcznym backward</td><td>nn.Linear</td></tr>
+<tr><td>ReLU jako X · [X &gt; 0]</td><td>nn.ReLU, czyli max(0, X)</td></tr>
+<tr><td>sigmoida + entropia krzyżowa, gradient (p − y)/N</td><td>BCEWithLogitsLoss</td></tr>
+<tr><td>backward każdego modułu w odwrotnej kolejności</td><td>loss.backward() po grafie obliczeniowym</td></tr>
+<tr><td>w ← w − α·dw, własny ADAM</td><td>torch.optim.SGD / Adam + zero_grad()</td></tr>
+<tr><td>losowa permutacja i pętla po paczkach</td><td>DataLoader z własną kolejnością</td></tr>
+</table>
+<p>Różnice, które mogą zmienić wynik: wagi startowe i generator losowy, precyzja (float32 / float64), funkcja kosztu przy skrajnych wyjściach, kolejność przykładów w paczkach, kolejność operacji w pętli, zapis ReLU.</p>
+</section>
+
+<section>
+<h3>1.2. Naiwny port i ta sama inicjalizacja (K0, K1)</h3>
+<p>K0: sieć jak w tutorialu (domyślne wagi nn.Linear, float32). K1: wagi N(0; 0,01) i bias 0 jak w ćw. 3, ale losowane generatorem PyTorch. Sieć 17-17-1, α = 0,01, 30 000 epok, 3 ziarna.</p>
+<figure><img src="../figures/raport_1_naiwny_port.png"></figure>
+<div class="tables">
+<table>
+<tr><th>wariant</th><th class="n">koniec plateau (epoka)</th><th class="n">najlepsza epoka</th><th class="n">F1 test</th></tr>
+<tr><td>ćw. 3 (NumPy)</td><td class="n">724 / 814 / 759</td><td class="n">1783 / 1797 / 1854</td><td class="n">0,76 / 0,76 / 0,76</td></tr>
+<tr><td>K0: domyślne wagi</td><td class="n">291 / 120 / 38</td><td class="n">1392 / 1387 / 957</td><td class="n">0,76 / 0,79 / 0,77</td></tr>
+<tr><td>K1: N(0; 0,01)</td><td class="n">737 / 923 / 759</td><td class="n">1847 / 1939 / 1730</td><td class="n">0,76 / 0,79 / 0,76</td></tr>
+</table>
+<table>
+<tr><th>wagi startowe</th><th class="n">std wag</th><th class="n">bias</th></tr>
+<tr><td>ćw. 3</td><td class="n">0,01</td><td class="n">0</td></tr>
+<tr><td>nn.Linear</td><td class="n">0,143</td><td class="n">losowy</td></tr>
+</table>
+</div>
+<p class="lbl">Obserwacje</p>
+<ul>
+<li>Domyślne wagi PyTorch są ok. 14 razy większe niż w ćw. 3, a bias nie jest zerem.</li>
+<li>Przez to K0 nie ma długiego plateau: sieć rusza po 40–290 epokach zamiast po ok. 750.</li>
+<li>K1 zachowuje się jak ćw. 3, ale liczby są inne, bo generator PyTorch losuje inne wagi.</li>
+<li>F1 na teście jest podobne we wszystkich wariantach, 0,76–0,79.</li>
+</ul>
+<p><b>Wniosek:</b> ta sama architektura nie daje tych samych liczb, trzeba skopiować wagi startowe.</p>
+</section>
+
+<section>
+<h3>1.3. Te same wagi: wyjście, gradient i krok (K2–K6)</h3>
+<p>Wagi startowe kopiuję z sieci z ćw. 3 i porównuję maksymalną różnicę |PyTorch − NumPy| na kolejnych poziomach.</p>
+<figure><img src="../figures/raport_2_poziomy.png"></figure>
+<div class="tables">
+<table>
+<tr><th>poziom</th><th class="n">float32</th><th class="n">float64</th></tr>
+<tr><td>wagi startowe</td><td class="n">9·10⁻¹⁰</td><td class="n">0</td></tr>
+<tr><td>koszt</td><td class="n">4·10⁻⁸</td><td class="n">1·10⁻¹⁶</td></tr>
+<tr><td>gradient dW</td><td class="n">2·10⁻⁹</td><td class="n">2·10⁻¹⁸</td></tr>
+<tr><td>wagi po 50 krokach ADAM</td><td class="n">–</td><td class="n">4·10⁻¹⁶</td></tr>
+</table>
+<table>
+<tr><th>z, y = 1</th><th class="n">koszt ćw. 3</th><th class="n">BCEWithLogits</th><th class="n">grad. ćw. 3</th><th class="n">grad. sigmoid+BCELoss</th></tr>
+<tr><td>−50</td><td class="n">27,6</td><td class="n">50,0</td><td class="n">−1</td><td class="n">−1,9·10⁻¹⁰</td></tr>
+<tr><td>−30</td><td class="n">27,6</td><td class="n">30,0</td><td class="n">−1</td><td class="n">−0,094</td></tr>
+<tr><td>−10</td><td class="n">10,0</td><td class="n">10,0</td><td class="n">−1</td><td class="n">−1</td></tr>
+</table>
+</div>
+<p class="lbl">Obserwacje</p>
+<ul>
+<li>float32 (domyślny w PyTorch) zaokrągla już same wagi, więc różnice są rzędu 10⁻⁹–10⁻⁸.</li>
+<li>W float64 wagi są identyczne, a wyjście, koszt i gradienty różnią się o ok. 10⁻¹⁶, czyli o ostatnią cyfrę liczby.</li>
+<li>Autograd daje ten sam gradient co ręczny backward, a SGD i ADAM z PyTorch liczą te same wzory co moje.</li>
+<li>Gradient BCEWithLogitsLoss jest taki sam jak w ćw. 3. Sigmoida i BCELoss osobno gubią gradient przy dużym błędzie.</li>
+</ul>
+<p><b>Wniosek:</b> przy tych samych wagach i float64 jeden krok uczenia jest taki sam z dokładnością do zaokrągleń.</p>
+</section>
+
+<section>
+<h3>1.4. Całe uczenie i kolejność paczek (K7–K9)</h3>
+<p>K7: 30 000 epok na pełnym zbiorze. K8: paczki po 32, 300 epok, sieć z 5 warstwami po 17 neuronów i wagami He.</p>
+<figure><img src="../figures/raport_3_uczenie.png"></figure>
+<table>
+<tr><th>wariant</th><th class="n">maks. różnica kosztu</th><th class="n">różnica wag na końcu</th><th>najlepsza epoka i macierz pomyłek</th></tr>
+<tr><td>K7, float64</td><td class="n">3·10⁻¹⁶</td><td class="n">1·10⁻¹⁵</td><td>te same (1783)</td></tr>
+<tr><td>K7, float32</td><td class="n">6·10⁻⁶</td><td class="n">1,5·10⁻⁴</td><td>te same (1783)</td></tr>
+<tr><td>K8, DataLoader(shuffle=True)</td><td class="n">4·10⁻³</td><td class="n">0,048</td><td>koszt końcowy 0,094 zamiast 0,096</td></tr>
+<tr><td>K8, kolejność z NumPy</td><td class="n">2·10⁻¹⁶</td><td class="n">7·10⁻¹⁶</td><td>te same</td></tr>
+</table>
+<p class="lbl">Obserwacje</p>
+<ul>
+<li>W float64 różnica nie rośnie przez 30 000 epok i zostaje na poziomie 10⁻¹⁶.</li>
+<li>W float32 różnica rośnie do 10⁻⁵, ale epoka najlepszych wag, koniec plateau i F1 są te same.</li>
+<li>DataLoader z mieszaniem losuje inną kolejność przykładów niż NumPy, więc wynik rozjeżdża się od 2. epoki. Własna kolejność usuwa tę różnicę.</li>
+<li>K9: w ćw. 3 koszt walidacyjny liczę przed krokiem, a w pętli z tutoriala jest po kroku. Zostawiam kolejność z ćw. 3, inaczej najlepsza epoka przesunęłaby się o 1.</li>
+</ul>
+<p><b>Wniosek:</b> po wyrównaniu wag, precyzji, kosztu i kolejności zostaje tylko błąd zaokrągleń, który w stabilnym uczeniu nie rośnie.</p>
+</section>
+
+<section>
+<h3>1.5. Wszystkie eksperymenty z ćw. 3</h3>
+<p>Powtórzyłem w PyTorch wszystkie eksperymenty z ćw. 3 (float64, te same wagi i ziarna) i porównałem każdą zapisaną liczbę: koszty, epoki, normy gradientów, metryki, macierze pomyłek.</p>
+<figure><img src="../figures/raport_4_eksperymenty.png"></figure>
+<table>
+<tr><th>eksperyment, w którym coś się różni</th><th class="n">ćw. 3 (NumPy)</th><th class="n">PyTorch</th></tr>
+<tr><td>inicjalizacja N(0; 10), ziarno 0</td><td class="n">NaN po 1 epoce</td><td class="n">koszt 0,690, bez NaN</td></tr>
+<tr><td>dane surowe, bez warstwy ukrytej</td><td class="n">koszt końcowy 7,97</td><td class="n">8,39</td></tr>
+<tr><td>ADAM α = 0,001, start N(0; 0,01), ziarno 2</td><td class="n">0,00608647</td><td class="n">0,00608648</td></tr>
+</table>
+<p class="lbl">Obserwacje</p>
+<ul>
+<li>Z 2598 liczb 2314 jest identycznych co do bitu, 264 różni się o ok. 10⁻¹⁶, a 20 jest różnych.</li>
+<li>Wszystkie 20 różnych liczb pochodzi z trzech przebiegów z tabeli.</li>
+<li>Wszystkie wnioski z ćw. 3 wychodzą tak samo.</li>
+<li>Na tak małych danych PyTorch jest ok. 3–4 razy wolniejszy (30 000 epok: 7,8 s zamiast 2,1 s), bo każda operacja ma stały narzut.</li>
+</ul>
+<p><b>Wniosek:</b> sieć z ćw. 3 udało się odtworzyć w PyTorch, poza trzema przebiegami opisanymi niżej.</p>
+</section>
+
+<section>
+<h3>1.6. Skąd pozostałe różnice</h3>
+<p>Sprawdzam, czy te same różnice pojawiają się w samym NumPy po zmianie wag o 1 ULP (najmniejszy możliwy krok liczby float64).</p>
+<figure><img src="../figures/raport_5_czulosc.png"></figure>
+<div class="tables">
+<table>
+<tr><th>N(0; 10), ziarno 0</th><th class="n">wynik</th></tr>
+<tr><td>NumPy, ReLU X · [X &gt; 0] (ćw. 3)</td><td class="n">NaN</td></tr>
+<tr><td>NumPy, ReLU max(0, X)</td><td class="n">koszt 0,690</td></tr>
+<tr><td>PyTorch, nn.ReLU</td><td class="n">koszt 0,690</td></tr>
+<tr><td>PyTorch, ReLU X · [X &gt; 0]</td><td class="n">NaN</td></tr>
+</table>
+<table>
+<tr><th>porównanie</th><th class="n">NumPy vs PyTorch</th><th class="n">NumPy vs NumPy +1 ULP</th></tr>
+<tr><td>dane surowe: różnica &gt; 10⁻⁶ od epoki</td><td class="n">329</td><td class="n">57</td></tr>
+<tr><td>dane surowe: koszt końcowy (NumPy 7,97)</td><td class="n">8,39</td><td class="n">8,21</td></tr>
+<tr><td>ADAM: maks. różnica kosztu</td><td class="n">6·10⁻⁷</td><td class="n">4·10⁻⁶</td></tr>
+</table>
+</div>
+<p class="lbl">Obserwacje</p>
+<ul>
+<li>Przy wagach N(0; 10) aktywacje dochodzą do −∞. ReLU z ćw. 3 mnoży przez maskę, a −∞ · 0 daje NaN. nn.ReLU daje 0.</li>
+<li>Zamiana zapisu ReLU zamienia wyniki dokładnie miejscami, więc przyczyną jest zapis ReLU, a nie PyTorch.</li>
+<li>Na danych surowych koszt skacze. NumPy sam ze sobą po zmianie wag o 1 ULP rozjeżdża się wcześniej niż z PyTorch.</li>
+<li>W ADAM jest podobnie: zmiana o 1 ULP daje większą różnicę (4·10⁻⁶) niż PyTorch (6·10⁻⁷).</li>
+</ul>
+<p><b>Wniosek:</b> pozostałe różnice wynikają z arytmetyki zmiennoprzecinkowej, a nie z błędu w implementacji.</p>
+</section>
+
+<section>
+<h2>Część 2. CIFAR10 – baseline</h2>
+<p>50 000 obrazków 32×32×3 w 10 klasach: 45 000 do uczenia, 5 000 do walidacji, plus 10 000 testowych. Obrazek spłaszczony do 3072 liczb i standaryzowany per kanał. Sieć 3072-1024-512-256-10 z ReLU (3,8 mln wag), softmax i entropia krzyżowa, ADAM α = 0,001, paczki po 128, 40 epok. Biorę wagi z epoki o najlepszej dokładności walidacyjnej.</p>
+<figure><img src="../figures/raport_6_cifar.png"></figure>
+<table>
+<tr><th>wariant</th><th class="n">najlepsza epoka</th><th class="n">dokładność walidacja</th><th class="n">dokładność test</th><th class="n">koszt test</th><th class="n">dokładność trening (40 ep.)</th></tr>
+<tr><td>MLP bez dropoutu</td><td class="n">14</td><td class="n">0,531</td><td class="n">0,536</td><td class="n">2,03</td><td class="n">0,93</td></tr>
+<tr><td><b>MLP + dropout 0,3</b></td><td class="n">26</td><td class="n">0,542</td><td class="n"><b>0,546</b></td><td class="n">1,36</td><td class="n">0,68</td></tr>
+</table>
+<p class="lbl">Obserwacje</p>
+<ul>
+<li>Bez dropoutu sieć zapamiętuje zbiór treningowy (93%), a koszt walidacyjny rośnie od ok. 6. epoki z 1,4 do 3,9.</li>
+<li>Dropout 0,3 zatrzymuje ten wzrost: koszt walidacyjny stoi na ok. 1,4.</li>
+<li>Dokładność na teście rośnie o 1 punkt procentowy, a koszt testowy spada z 2,03 do 1,36.</li>
+</ul>
+<p><b>Wniosek:</b> baseline do ćw. 5 to <b>54,6%</b> dokładności na teście (losowe zgadywanie daje 10%).</p>
+</section>
+
+<section>
+<figure><img src="../figures/raport_7_cifar_klasy.png"></figure>
+<div class="tables">
+<table>
+<tr><th>najczęstsze pomyłki</th><th class="n">% klasy</th></tr>
+<tr><td>kot → pies</td><td class="n">24</td></tr>
+<tr><td>pies → kot</td><td class="n">22</td></tr>
+<tr><td>ptak → jeleń</td><td class="n">18</td></tr>
+<tr><td>żaba → jeleń</td><td class="n">16</td></tr>
+<tr><td>samochód → ciężarówka</td><td class="n">15</td></tr>
+</table>
+</div>
+<p class="lbl">Obserwacje</p>
+<ul>
+<li>Najlepiej rozpoznawane są statki (70%) i samoloty (64%), najgorzej koty (37%) i ptaki (38%).</li>
+<li>Sieć myli głównie podobne klasy: kot z psem, zwierzęta między sobą, samochód z ciężarówką.</li>
+<li>MLP traktuje każdy piksel osobno i nie wie, które piksele sąsiadują ze sobą.</li>
+</ul>
+<p><b>Wniosek:</b> do obrazów potrzebne są warstwy, które korzystają z sąsiedztwa pikseli (konwolucje w ćw. 5).</p>
+</section>
+
+<section>
+<h2>Wnioski</h2>
+<ul>
+<li>Sieć z ćw. 3 da się odtworzyć w PyTorch z dokładnością do 10⁻¹⁵: wagi, gradienty, krzywe kosztu i metryki.</li>
+<li>Trzeba jednak wyrównać wagi startowe, precyzję, funkcję kosztu, kolejność przykładów i kolejność operacji w pętli.</li>
+<li>Porównywanie od najniższego poziomu (wagi, wyjście, gradient, jeden krok, całe uczenie) pokazuje, skąd bierze się różnica. Same metryki końcowe tego nie pokazują.</li>
+<li>Na CIFAR10 MLP osiąga 54,6% i to jest punkt odniesienia dla sieci konwolucyjnej.</li>
+</ul>
+</section>
+
+</body>
+</html>

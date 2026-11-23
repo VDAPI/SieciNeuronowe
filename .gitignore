@@ -12,3 +12,12 @@ Thumbs.db
 
 # Archives
 *.zip
+
+# ćw. 4: CIFAR10 (ok. 170 MB, pobierany przez torchvision), wagi modeli, logi
+cw4_pytorch/dane/cifar10/
+cw4_pytorch/logs/
+*.pt
+
+# CIFAR10 w dowolnym folderze ćwiczenia (np. cw5_cnn/dane/)
+cifar-10-batches-py/
+cifar-10-python.tar.gz

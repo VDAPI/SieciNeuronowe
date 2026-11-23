@@ -3,3 +3,6 @@ pandas
 matplotlib
 scipy
 scikit-learn
+# ćw. 4+: CPU: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision

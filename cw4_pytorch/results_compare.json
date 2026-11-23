@@ -1,0 +1,186 @@
+{
+  "baseline": {
+    "description": "cz. 1: model bazowy 17-17-1",
+    "compared": 39,
+    "same": 37,
+    "close": 2,
+    "diff": 0,
+    "max_abs_diff": 3.3306690738754696e-16,
+    "differences": []
+  },
+  "width": {
+    "description": "cz. 1: szerokość warstwy (5 x 3 ziarna)",
+    "compared": 620,
+    "same": 574,
+    "close": 46,
+    "diff": 0,
+    "max_abs_diff": 8.881784197001252e-16,
+    "differences": []
+  },
+  "scaling": {
+    "description": "cz. 1: skalowanie danych",
+    "compared": 237,
+    "same": 210,
+    "close": 19,
+    "diff": 8,
+    "max_abs_diff": 2.0,
+    "differences": [
+      {
+        "path": "/none/logreg/final_train_loss",
+        "numpy": 7.969315108283581,
+        "torch": 8.388362135355461
+      },
+      {
+        "path": "/none/logreg/final_val_loss",
+        "numpy": 8.862474775327279,
+        "torch": 9.350948428551575
+      },
+      {
+        "path": "/none/logreg/final/train/precision",
+        "numpy": 0.9444444444444444,
+        "torch": 0.9411764705882353
+      },
+      {
+        "path": "/none/logreg/final/train/recall",
+        "numpy": 0.40963855421686746,
+        "torch": 0.3855421686746988
+      },
+      {
+        "path": "/none/logreg/final/train/f1",
+        "numpy": 0.5714285714285714,
+        "torch": 0.547008547008547
+      },
+      {
+        "path": "/none/logreg/final/train/accuracy",
+        "numpy": 0.7182320441988951,
+        "torch": 0.7071823204419889
+      },
+      {
+        "path": "/none/logreg/final/train/tp",
+        "numpy": 34,
+        "torch": 32
+      },
+      {
+        "path": "/none/logreg/final/train/fn",
+        "numpy": 49,
+        "torch": 51
+      }
+    ]
+  },
+  "depth": {
+    "description": "cz. 1: liczba warstw (150 000 epok)",
+    "compared": 630,
+    "same": 580,
+    "close": 50,
+    "diff": 0,
+    "max_abs_diff": 9.769962616701378e-15,
+    "differences": []
+  },
+  "he": {
+    "description": "cz. 1: inicjalizacja He",
+    "compared": 156,
+    "same": 146,
+    "close": 10,
+    "diff": 0,
+    "max_abs_diff": 1.3322676295501878e-15,
+    "differences": []
+  },
+  "saddle": {
+    "description": "cz. 2: punkt siodłowy",
+    "compared": 8,
+    "same": 6,
+    "close": 2,
+    "diff": 0,
+    "max_abs_diff": 1.1102230246251565e-16,
+    "differences": []
+  },
+  "modes": {
+    "description": "cz. 2: full / paczki / pojedyncze",
+    "compared": 201,
+    "same": 173,
+    "close": 28,
+    "diff": 0,
+    "max_abs_diff": 2.220446049250313e-16,
+    "differences": []
+  },
+  "init": {
+    "description": "cz. 2: inicjalizacja wag",
+    "compared": 302,
+    "same": 229,
+    "close": 64,
+    "diff": 9,
+    "max_abs_diff": 2994.0,
+    "differences": [
+      {
+        "path": "/N(0; 10), zepsuta/runs[0]/final_loss",
+        "numpy": NaN,
+        "torch": 0.689711684343487
+      },
+      {
+        "path": "/N(0; 10), zepsuta/runs[0]/min_loss",
+        "numpy": 11.907297956444689,
+        "torch": 0.6897092779443825
+      },
+      {
+        "path": "/N(0; 10), zepsuta/runs[0]/diverged",
+        "numpy": true,
+        "torch": false
+      },
+      {
+        "path": "/N(0; 10), zepsuta/runs[0]/epochs_run",
+        "numpy": 1,
+        "torch": 500
+      },
+      {
+        "path": "/N(0; 10), zepsuta/runs[0]/steps",
+        "numpy": 6,
+        "torch": 3000
+      },
+      {
+        "path": "/N(0; 10), zepsuta/runs[0]/best_epoch",
+        "numpy": 0,
+        "torch": 283
+      },
+      {
+        "path": "/N(0; 10), zepsuta/runs[0]/test_f1_early",
+        "numpy": null,
+        "torch": 0.0
+      },
+      {
+        "path": "/N(0; 10), zepsuta/n_diverged",
+        "numpy": 2,
+        "torch": 1
+      },
+      {
+        "path": "/N(0; 10), zepsuta/test_f1_early",
+        "numpy": 0.06666666666666667,
+        "torch": 0.044444444444444446
+      }
+    ]
+  },
+  "adam": {
+    "description": "cz. 2: GD vs ADAM",
+    "compared": 405,
+    "same": 359,
+    "close": 43,
+    "diff": 3,
+    "max_abs_diff": 9.567668109167204e-09,
+    "differences": [
+      {
+        "path": "/N(0; 0,01)/ADAM α = 0,001/runs[2]/final_loss",
+        "numpy": 0.006086467920285553,
+        "torch": 0.006086477487953663
+      },
+      {
+        "path": "/N(0; 0,01)/ADAM α = 0,001/runs[2]/min_loss",
+        "numpy": 0.006086467920285553,
+        "torch": 0.006086477487953663
+      },
+      {
+        "path": "/N(0; 0,01)/ADAM α = 0,001/final_loss",
+        "numpy": 0.0038069868943571617,
+        "torch": 0.003806990083579881
+      }
+    ]
+  }
+}

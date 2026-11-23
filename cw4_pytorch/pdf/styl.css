@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&display=swap');
+
+@page {
+  size: A4 portrait;
+  margin: 15mm 17mm 16mm 17mm;
+  @bottom-center { content: counter(page); font-family: 'Carlito', Calibri, sans-serif; font-size: 8pt; color: #444; }
+}
+
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: 'Carlito', Calibri, sans-serif; font-size: 11pt; line-height: 1.38; color: #111; margin: 0; background: #fff; }
+
+h1 { font-size: 18pt; margin: 0 0 3pt 0; }
+.meta { margin: 0 0 10pt 0; }
+h2 { font-size: 15pt; margin: 14pt 0 5pt 0; }
+h3 { font-size: 13.5pt; margin: 12pt 0 4pt 0; }
+p { margin: 0 0 6pt 0; }
+ul { margin: 0 0 6pt 0; padding-left: 18pt; }
+li { margin: 0 0 2pt 0; }
+.lbl { font-weight: bold; margin: 6pt 0 3pt 0; }
+
+figure { margin: 6pt 0 6pt 0; text-align: center; }
+figure img { width: 92%; }
+
+table { border-collapse: collapse; font-size: 9.5pt; margin: 4pt auto 8pt auto; }
+th, td { border: 0.6pt solid #b8b8b8; padding: 1.5pt 6pt; text-align: left; vertical-align: top; }
+th { background: #f0f0f0; font-weight: bold; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+th, td:first-child { white-space: nowrap; }
+.tables { display: flex; gap: 14pt; justify-content: center; align-items: flex-start; }
+.tables table { margin: 4pt 0 8pt 0; }
+.cap { font-size: 9pt; color: #333; margin: 0 0 2pt 0; }
+
+/* punkt, który nie mieści się na stronie, zaczyna się od nowej */
+section { break-inside: avoid; page-break-inside: avoid; }
+.nb { break-before: page; page-break-before: always; }
+code { font-family: Consolas, monospace; font-size: 9.5pt; }
+
+/* NAUKA */
+.ex { margin: 3pt 0 8pt 0; }
+.eq { text-align: center; margin: 4pt 0 6pt 0; }
